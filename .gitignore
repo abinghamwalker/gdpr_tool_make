@@ -1,0 +1,16 @@
+venv
+**/__pycache__/
+.pytest*
+random-data.csv
+.coverage
+coverage.xml
+src/lambda_package.zip
+terraform/.terraform/
+*.tfstate*
+.terraform*
+*.zip
+.coverage
+
+
+
+
