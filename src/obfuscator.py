@@ -8,10 +8,7 @@ from typing import Any, Dict, List, Tuple, Union
 import boto3
 import pyarrow as pa
 import pyarrow.parquet as pq
-from botocore.exceptions import (
-    ClientError,
-    NoCredentialsError,
-    PartialCredentialsError)
+from botocore.exceptions import ClientError, NoCredentialsError, PartialCredentialsError
 
 # Configure logging
 logger = logging.getLogger()
