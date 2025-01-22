@@ -2,7 +2,7 @@ import json
 import os
 import sys
 
-from obfuscator import MultiFormatObfuscator  
+from obfuscator import MultiFormatObfuscator
 
 
 def main():
@@ -15,9 +15,7 @@ def main():
 
     input_file = sys.argv[1]
     try:
-        pii_fields = json.loads(
-            sys.argv[2]
-        ) 
+        pii_fields = json.loads(sys.argv[2])
     except json.JSONDecodeError:
         print(
             "Invalid JSON format for PII fields. Please provide a valid JSON array of field names."
