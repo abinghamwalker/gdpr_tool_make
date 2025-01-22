@@ -18,7 +18,8 @@ def main():
         pii_fields = json.loads(sys.argv[2])
     except json.JSONDecodeError:
         print(
-            "Invalid JSON format for PII fields. Please provide a valid JSON array of field names."
+            "Invalid JSON format for PII fields. "
+            "Please provide a valid JSON array of field names."
         )
         sys.exit(1)
 

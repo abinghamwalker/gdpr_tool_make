@@ -200,7 +200,8 @@ class MultiFormatObfuscator:
                 "statusCode": 200,
                 "body": json.dumps(
                     {
-                        "message": f"Successfully processed and overwritten s3://{bucket}/{key}",
+                        "message": "Successfully processed"
+                        f" and overwritten s3://{bucket}/{key}",
                         "format": file_format,
                     }
                 ),
@@ -255,7 +256,8 @@ class MultiFormatObfuscator:
                     "statusCode": 200,
                     "body": json.dumps(
                         {
-                            "message": f"Successfully processed and overwritten local file: {file_to_obfuscate}",
+                            "message": "Successfully processed"
+                            f" and overwritten local file: {file_to_obfuscate}",
                             "format": file_format,
                         }
                     ),
