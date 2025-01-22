@@ -217,7 +217,7 @@ class MultiFormatObfuscator:
                 if not event.get("Records"):
                     return {
                         "statusCode": 400,
-                        "body": json.dumps({"error": "No records found in S3 event"})
+                        "body": json.dumps({"error": "No records found in S3 event"}),
                     }
 
                 s3_event = event["Records"][0]["s3"]
@@ -229,7 +229,9 @@ class MultiFormatObfuscator:
                 if not pii_fields:
                     return {
                         "statusCode": 400,
-                        "body": json.dumps({"error": "Missing required parameter: pii_fields"})
+                        "body": json.dumps(
+                            {"error": "Missing required parameter: pii_fields"}
+                        ),
                     }
             else:
                 file_to_obfuscate = event.get("file_to_obfuscate")
@@ -238,12 +240,16 @@ class MultiFormatObfuscator:
                 if not file_to_obfuscate:
                     return {
                         "statusCode": 400,
-                        "body": json.dumps({"error": "Missing required parameter: file_to_obfuscate"})
+                        "body": json.dumps(
+                            {"error": "Missing required parameter: file_to_obfuscate"}
+                        ),
                     }
                 if not pii_fields:
                     return {
                         "statusCode": 400,
-                        "body": json.dumps({"error": "Missing required parameter: pii_fields"})
+                        "body": json.dumps(
+                            {"error": "Missing required parameter: pii_fields"}
+                        ),
                     }
 
             if not file_to_obfuscate.startswith("s3://"):
@@ -251,7 +257,9 @@ class MultiFormatObfuscator:
                 if not os.path.exists(file_to_obfuscate):
                     return {
                         "statusCode": 404,
-                        "body": json.dumps({"error": f"File not found: {file_to_obfuscate}"})
+                        "body": json.dumps(
+                            {"error": f"File not found: {file_to_obfuscate}"}
+                        ),
                     }
 
                 with open(file_to_obfuscate, "rb") as f:
@@ -260,15 +268,23 @@ class MultiFormatObfuscator:
                 file_format = self._get_file_format(file_to_obfuscate)
 
                 if file_format == "csv":
-                    output_content, content_type = self._obfuscate_csv(content, pii_fields)
+                    output_content, content_type = self._obfuscate_csv(
+                        content, pii_fields
+                    )
                 elif file_format == "json":
-                    output_content, content_type = self._obfuscate_json(content, pii_fields)
+                    output_content, content_type = self._obfuscate_json(
+                        content, pii_fields
+                    )
                 elif file_format == "parquet":
-                    output_content, content_type = self._obfuscate_parquet(content, pii_fields)
+                    output_content, content_type = self._obfuscate_parquet(
+                        content, pii_fields
+                    )
                 else:
                     return {
                         "statusCode": 400,
-                        "body": json.dumps({"error": f"Unsupported file format: {file_format}"})
+                        "body": json.dumps(
+                            {"error": f"Unsupported file format: {file_format}"}
+                        ),
                     }
 
                 with open(
@@ -288,15 +304,17 @@ class MultiFormatObfuscator:
                 }
 
             s3_location = self._parse_s3_uri(file_to_obfuscate)
-            return self.process_file(s3_location["bucket"], s3_location["key"], pii_fields)
+            return self.process_file(
+                s3_location["bucket"], s3_location["key"], pii_fields
+            )
 
         except Exception as er_info:
             logger.error(f"Error processing request: {str(er_info)}")
             return {"statusCode": 500, "body": json.dumps({"error": str(er_info)})}
 
+
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict:
-    """
-    """
+    """ """
     try:
         if isinstance(event, str):
             event = json.loads(event)

@@ -7,10 +7,6 @@ from obfuscator import MultiFormatObfuscator
 
 def main():
     if len(sys.argv) != 3:
-        print("Usage: python test_obfuscator.py <input_file> <pii_fields>")
-        print('Example: python test_obfuscator.py data.csv \'["name", "email"]\'')
-        print('Example: python test_obfuscator.py data.json \'["name", "email"]\'')
-        print('Example: python test_obfuscator.py data.parquet \'["name", "email"]\'')
         sys.exit(1)
 
     input_file = sys.argv[1]
