@@ -210,21 +210,49 @@ class MultiFormatObfuscator:
             logger.error(f"Error processing file {key}: {str(er_info)}")
             return {"statusCode": 500, "body": json.dumps({"error": str(er_info)})}
 
-    def process_request(self, event: Dict) -> List[Dict]:
+    def process_request(self, event: Dict) -> Dict:
         """Process an obfuscation request and overwrite the file in place."""
         try:
-            file_to_obfuscate = event.get("file_to_obfuscate")
-            pii_fields = event.get("pii_fields", [])
+            if "Records" in event:
+                if not event.get("Records"):
+                    return {
+                        "statusCode": 400,
+                        "body": json.dumps({"error": "No records found in S3 event"})
+                    }
 
-            if not file_to_obfuscate:
-                raise ValueError("Missing required parameter: file_to_obfuscate")
-            if not pii_fields:
-                raise ValueError("Missing required parameter: pii_fields")
+                s3_event = event["Records"][0]["s3"]
+                bucket = s3_event["bucket"]["name"]
+                key = s3_event["object"]["key"]
+                file_to_obfuscate = f"s3://{bucket}/{key}"
+
+                pii_fields = event.get("pii_fields", [])
+                if not pii_fields:
+                    return {
+                        "statusCode": 400,
+                        "body": json.dumps({"error": "Missing required parameter: pii_fields"})
+                    }
+            else:
+                file_to_obfuscate = event.get("file_to_obfuscate")
+                pii_fields = event.get("pii_fields", [])
+
+                if not file_to_obfuscate:
+                    return {
+                        "statusCode": 400,
+                        "body": json.dumps({"error": "Missing required parameter: file_to_obfuscate"})
+                    }
+                if not pii_fields:
+                    return {
+                        "statusCode": 400,
+                        "body": json.dumps({"error": "Missing required parameter: pii_fields"})
+                    }
 
             if not file_to_obfuscate.startswith("s3://"):
                 # Local file processing
                 if not os.path.exists(file_to_obfuscate):
-                    raise FileNotFoundError(f"File not found: {file_to_obfuscate}")
+                    return {
+                        "statusCode": 404,
+                        "body": json.dumps({"error": f"File not found: {file_to_obfuscate}"})
+                    }
 
                 with open(file_to_obfuscate, "rb") as f:
                     content = f.read()
@@ -232,21 +260,17 @@ class MultiFormatObfuscator:
                 file_format = self._get_file_format(file_to_obfuscate)
 
                 if file_format == "csv":
-                    output_content, content_type = self._obfuscate_csv(
-                        content, pii_fields
-                    )
+                    output_content, content_type = self._obfuscate_csv(content, pii_fields)
                 elif file_format == "json":
-                    output_content, content_type = self._obfuscate_json(
-                        content, pii_fields
-                    )
+                    output_content, content_type = self._obfuscate_json(content, pii_fields)
                 elif file_format == "parquet":
-                    output_content, content_type = self._obfuscate_parquet(
-                        content, pii_fields
-                    )
+                    output_content, content_type = self._obfuscate_parquet(content, pii_fields)
                 else:
-                    raise ValueError(f"Unsupported file format: {file_format}")
+                    return {
+                        "statusCode": 400,
+                        "body": json.dumps({"error": f"Unsupported file format: {file_format}"})
+                    }
 
-                # Overwrite the local file in place
                 with open(
                     file_to_obfuscate, "w" if isinstance(output_content, str) else "wb"
                 ) as f:
@@ -263,20 +287,15 @@ class MultiFormatObfuscator:
                     ),
                 }
 
-            # S3 file processing
             s3_location = self._parse_s3_uri(file_to_obfuscate)
-            return self.process_file(
-                s3_location["bucket"], s3_location["key"], pii_fields
-            )
+            return self.process_file(s3_location["bucket"], s3_location["key"], pii_fields)
 
         except Exception as er_info:
             logger.error(f"Error processing request: {str(er_info)}")
             return {"statusCode": 500, "body": json.dumps({"error": str(er_info)})}
 
-
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict:
     """
-    AWS Lambda handler that supports both direct invocation and S3 events.
     """
     try:
         if isinstance(event, str):

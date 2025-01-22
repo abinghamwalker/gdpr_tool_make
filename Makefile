@@ -81,8 +81,9 @@ format:
 	@$(VENV_BIN)/isort $(PYTHON_FILES)
 
 # Run security checks
-security-checks: bandit safety
+security-checks: bandit
 	@echo "Running security checks..."
+	@$(VENV_BIN)/safety scan || (echo "Safety checks failed"; exit 1)
 
 # Run bandit security checks
 bandit:

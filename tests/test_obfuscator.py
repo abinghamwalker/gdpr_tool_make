@@ -279,15 +279,190 @@ class TestMultiFormatObfuscator:
         obfuscator = MultiFormatObfuscator()
         event = {"pii_fields": ["name"]}
         result = obfuscator.process_request(event)
-        assert result["statusCode"] == 500
+        assert result["statusCode"] == 400
 
     def test_process_request_missing_pii_fields(self, aws_credentials):
         """Test request processing with missing pii_fields parameter."""
         obfuscator = MultiFormatObfuscator()
         event = {"file_to_obfuscate": "s3://bucket/file.csv"}
         result = obfuscator.process_request(event)
-        assert result["statusCode"] == 500
+        assert result["statusCode"] == 400
 
+    # these are all coverage improvement tests
+
+    def test_init_error_creating_s3_client(self):
+        """Test initialization when creating S3 client fails with a non-credential error."""
+        with patch('boto3.Session.client') as mock_client:
+            mock_client.side_effect = Exception("Failed to create client")
+            with pytest.raises(Exception, match="Failed to create client"):
+                MultiFormatObfuscator()
+
+    def test_get_file_from_s3_generic_error(self):
+        """Test generic error when retrieving file from S3."""
+        obfuscator = MultiFormatObfuscator()
+        with patch.object(obfuscator.s3_client, 'get_object', side_effect=Exception("Generic S3 error")):
+            with pytest.raises(Exception, match="Generic S3 error"):
+                obfuscator._get_file_from_s3("bucket", "key")
+
+    def test_obfuscate_csv_generic_error(self):
+        """Test generic error during CSV obfuscation."""
+        obfuscator = MultiFormatObfuscator()
+        with patch('csv.DictReader', side_effect=Exception("CSV processing error")):
+            with pytest.raises(Exception, match="CSV processing error"):
+                obfuscator._obfuscate_csv(b"header\ndata", ["field"])
+
+    def test_obfuscate_json_generic_error(self):
+        """Test generic error during JSON obfuscation."""
+        obfuscator = MultiFormatObfuscator()
+        valid_json = '[{"name": "test"}]'.encode('utf-8')
+        with patch('json.loads', side_effect=Exception("JSON processing error")):
+            with pytest.raises(Exception, match="JSON processing error"):
+                obfuscator._obfuscate_json(valid_json, ["name"])
+
+    def test_obfuscate_parquet_generic_error(self):
+        """Test generic error during Parquet obfuscation."""
+        obfuscator = MultiFormatObfuscator()
+        with patch('pyarrow.parquet.read_table', side_effect=Exception("Parquet processing error")):
+            with pytest.raises(Exception, match="Parquet processing error"):
+                obfuscator._obfuscate_parquet(b"parquet_content", ["field"])
+
+    def test_obfuscate_parquet_missing_fields(self):
+        """Test Parquet obfuscation with missing PII fields."""
+        obfuscator = MultiFormatObfuscator()
+        df = pd.DataFrame({'existing_field': ['value']})
+        table = pa.Table.from_pandas(df)
+        buf = io.BytesIO()
+        pq.write_table(table, buf)
+        
+        with pytest.raises(ValueError, match="Fields not found in Parquet"):
+            obfuscator._obfuscate_parquet(buf.getvalue(), ["non_existent_field"])
+
+    def test_process_request_local_file_not_found(self):
+        """Test processing a non-existent local file."""
+        obfuscator = MultiFormatObfuscator()
+        event = {
+            "file_to_obfuscate": "/non/existent/path.csv",
+            "pii_fields": ["name"]
+        }
+        result = obfuscator.process_request(event)
+        assert result["statusCode"] == 404
+        assert "File not found" in result["body"]
+
+    def test_process_request_empty_s3_records(self):
+        """Test processing S3 event with empty records."""
+        obfuscator = MultiFormatObfuscator()
+        event = {
+            "Records": [],
+            "pii_fields": ["name"]
+        }
+        result = obfuscator.process_request(event)
+        assert result["statusCode"] == 400
+        assert "No records found in S3 event" in result["body"]
+        
+
+    def test_init_generic_exception(self):
+        """Test initialization with a generic exception."""
+        with patch('boto3.Session', side_effect=Exception("Generic error")):
+            with pytest.raises(Exception):
+                MultiFormatObfuscator()
+
+    @mock_aws
+    def test_get_file_from_s3_client_error(self, setup_s3):
+        """Test retrieval of file with ClientError."""
+        obfuscator = MultiFormatObfuscator()
+        with patch.object(obfuscator.s3_client, 'get_object', side_effect=ClientError(
+            {"Error": {"Code": "403", "Message": "Forbidden"}}, "GetObject"
+        )):
+            with pytest.raises(ClientError):
+                obfuscator._get_file_from_s3(setup_s3["bucket"], setup_s3["key"])
+
+    @mock_aws
+    def test_put_file_to_s3_string_content(self, setup_s3):
+        """Test successful file upload to S3 with string content."""
+        obfuscator = MultiFormatObfuscator()
+        content = "test content"
+        obfuscator._put_file_to_s3(setup_s3["bucket"], setup_s3["key"], content, "text/plain")
+
+    def test_obfuscate_json_not_list(self):
+        """Test obfuscation of JSON content that is not a list."""
+        obfuscator = MultiFormatObfuscator()
+        json_content = b'{"name": "John Smith"}'
+        pii_fields = ['name']
+        with pytest.raises(ValueError, match="JSON content must be a list of objects"):
+            obfuscator._obfuscate_json(json_content, pii_fields)
+
+    def test_process_request_local_file(self, tmpdir):
+        """Test processing a local file."""
+        obfuscator = MultiFormatObfuscator()
+        file_path = tmpdir.join("test.csv")
+        file_path.write("student_id,name,email_address,course\n1,John Smith,j.smith@email.com,Software\n")
+        
+        event = {
+            "file_to_obfuscate": str(file_path),  # Ensure this matches the expected key
+            "pii_fields": ["name", "email_address"],
+        }
+        
+        result = obfuscator.process_request(event)
+        assert result["statusCode"] == 200, f"Expected statusCode 200, got {result['statusCode']}"
+
+    def test_get_file_format_case_sensitivity(self):
+        """Test file format detection with different case extensions."""
+        obfuscator = MultiFormatObfuscator()
+        formats = {
+            "test.CSV": "csv",
+            "test.JSON": "json",
+            "test.PARQUET": "parquet",
+            "test.csv": "csv",
+            "test.json": "json",
+            "test.parquet": "parquet"
+        }
+        for file_path, expected_format in formats.items():
+            assert obfuscator._get_file_format(file_path) == expected_format
+
+    def test_csv_with_missing_headers(self):
+        """Test CSV processing with missing headers."""
+        obfuscator = MultiFormatObfuscator()
+        csv_content = "\n".encode('utf-8')  # Empty CSV with just a newline
+        with pytest.raises(ValueError, match="CSV file appears to be empty or malformed"):
+            obfuscator._obfuscate_csv(csv_content, ["field"])
+
+    def test_json_with_empty_list(self):
+        """Test JSON processing with empty list."""
+        obfuscator = MultiFormatObfuscator()
+        json_content = "[]".encode('utf-8')
+        result, content_type = obfuscator._obfuscate_json(json_content, ["field"])
+        assert result == "[]"
+        assert content_type == "application/json"
+
+    def test_parquet_all_fields_obfuscated(self):
+        """Test Parquet processing with all fields being obfuscated."""
+        obfuscator = MultiFormatObfuscator()
+        df = pd.DataFrame({
+            'field1': ['value1'],
+            'field2': ['value2']
+        })
+        table = pa.Table.from_pandas(df)
+        buf = io.BytesIO()
+        pq.write_table(table, buf)
+        
+        result, content_type = obfuscator._obfuscate_parquet(buf.getvalue(), ['field1', 'field2'])
+        assert content_type == "application/parquet"
+        
+        # Read back the result
+        result_buf = io.BytesIO(result)
+        result_table = pq.read_table(result_buf)
+        result_df = result_table.to_pandas()
+        
+        assert all(result_df['field1'] == '****')
+        assert all(result_df['field2'] == '****')
+
+    def test_process_request_with_empty_key(self):
+        """Test processing request with empty S3 key."""
+        obfuscator = MultiFormatObfuscator()
+        s3_parts = obfuscator._parse_s3_uri("s3://bucket/")
+        assert s3_parts["key"] == ""
+
+    
 class TestLambdaHandler:
     """Test suite for Lambda handler."""
 
