@@ -7,12 +7,31 @@ resource "random_id" "bucket_suffix" {
   byte_length = 4
 }
 
+# Automatically create the S3 bucket for Terraform state
+resource "aws_s3_bucket" "state_bucket" {
+  bucket = "gdpr-state-bucket-${var.environment}-${random_id.bucket_suffix.hex}"
+
+  versioning {
+    enabled = true
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+# Automatically create the S3 bucket for Lambda deployment package
+resource "aws_s3_bucket" "lambda_bucket" {
+  bucket = "gdpr-lambda-bucket-${var.environment}-${random_id.bucket_suffix.hex}"
+}
+
 # Terraform backend configuration
 terraform {
   backend "s3" {
-    bucket = "var.state_bucket"
-    key    = "terraform.tfstate"
-    region = "eu-west-2"
+    bucket         = aws_s3_bucket.state_bucket.bucket
+    key            = "terraform.tfstate"
+    region         = var.aws_region
+    encrypt        = true
   }
 }
 
@@ -48,10 +67,10 @@ resource "aws_s3_bucket_public_access_block" "data_access" {
 
 # Lambda function
 resource "aws_lambda_function" "obfuscator" {
-  s3_bucket     = var.lambda_bucket
+  s3_bucket     = aws_s3_bucket.lambda_bucket.bucket
   s3_key        = "lambda_package.zip"
   function_name = "data-obfuscator-${var.environment}"
-  role          = aws_iam_role.lambda_role.arn
+  role          = aws_iam_role.lambda_role.arn  # Reference to the IAM role in iam.tf
   handler       = "obfuscator.lambda_handler"
   runtime       = "python3.9"
   timeout       = 300
@@ -87,69 +106,9 @@ resource "aws_lambda_permission" "allow_s3" {
   source_arn    = aws_s3_bucket.data_bucket.arn
 }
 
-# IAM role for Lambda
-resource "aws_iam_role" "lambda_role" {
-  name = "obfuscator_lambda_role_${var.environment}"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "lambda.amazonaws.com"
-        }
-      }
-    ]
-  })
-}
-
-# IAM policy for Lambda
-resource "aws_iam_role_policy" "lambda_policy" {
-  name = "obfuscator_lambda_policy_${var.environment}"
-  role = aws_iam_role.lambda_role.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:GetObject",
-          "s3:PutObject",
-          "s3:ListBucket"
-        ]
-        Resource = [
-          "${aws_s3_bucket.data_bucket.arn}/*",
-          "arn:aws:s3:::${var.lambda_bucket}/*",
-          aws_s3_bucket.data_bucket.arn
-        ]
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents"
-        ]
-        Resource = "arn:aws:logs:*:*:*"
-      }
-    ]
-  })
-}
-
 # CloudWatch Log Group with retention
 resource "aws_cloudwatch_log_group" "lambda_logs" {
   name              = "/aws/lambda/${aws_lambda_function.obfuscator.function_name}"
   retention_in_days = 30
 }
 
-# Outputs
-output "data_bucket" {
-  value = aws_s3_bucket.data_bucket.id
-}
-
-output "lambda_function_name" {
-  value = aws_lambda_function.obfuscator.function_name
-}
