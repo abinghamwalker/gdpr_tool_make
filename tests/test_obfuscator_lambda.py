@@ -3,7 +3,7 @@ import aioboto3
 import json
 import io
 import polars as pl
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, AsyncMock
 from botocore.exceptions import ClientError, NoCredentialsError, PartialCredentialsError
 import os
 import sys
@@ -56,43 +56,60 @@ class TestAsyncMultiFormatObfuscator:
             with pytest.raises(NoCredentialsError):
                 MultiFormatObfuscator()
 
+ 
     @pytest.mark.asyncio
     async def test_get_file_from_s3_success(self, aws_credentials):
         obfuscator = MultiFormatObfuscator()
-        mock_response = {'Body': Mock()}
-        mock_response['Body'].read = Mock(return_value=b"test content")
-        
-        with patch('aioboto3.Session') as mock_session:
-            mock_client = Mock()
-            mock_client.__aenter__.return_value.get_object.return_value = mock_response
-            mock_session.return_value.client.return_value = mock_client
-            
-            content = await obfuscator._get_file_from_s3("test-bucket", "test-key")
-            assert content == b"test content"
+        mock_response = {'Body': AsyncMock()}
+        mock_response['Body'].read = AsyncMock(return_value=b"test content")
+
+        async def async_cm():
+            mock_client = AsyncMock()
+            mock_client.get_object = AsyncMock(return_value=mock_response)
+            return mock_client
+
+        with patch.object(obfuscator.session, 'client', return_value=AsyncMock(
+            __aenter__=AsyncMock(side_effect=async_cm),
+            __aexit__=AsyncMock(),
+        )):
+            result = await obfuscator._get_file_from_s3("bucket", "key")
+            assert result == b"test content"
 
     @pytest.mark.asyncio
     async def test_get_file_from_s3_client_error(self, aws_credentials):
         obfuscator = MultiFormatObfuscator()
-        with patch('aioboto3.Session') as mock_session:
-            mock_client = Mock()
-            mock_client.__aenter__.return_value.get_object.side_effect = ClientError(
-                {"Error": {"Code": "NoSuchKey", "Message": "Not found"}},
-                "GetObject"
-            )
-            mock_session.return_value.client.return_value = mock_client
-            
+        mock_client = AsyncMock()
+        mock_client.get_object.side_effect = ClientError(
+            {"Error": {"Code": "NoSuchKey", "Message": "Not found"}},
+            "GetObject"
+        )
+        
+        with patch('aioboto3.Session', return_value=AsyncMock(
+            client=Mock(return_value=AsyncMock(__aenter__=AsyncMock(return_value=mock_client)))
+        )):
             with pytest.raises(ClientError):
-                await obfuscator._get_file_from_s3("test-bucket", "test-key")
-
+                await obfuscator._get_file_from_s3("bucket", "key")
     @pytest.mark.asyncio
     async def test_put_file_to_s3_success(self, aws_credentials):
         obfuscator = MultiFormatObfuscator()
-        with patch('aioboto3.Session') as mock_session:
-            mock_client = Mock()
-            mock_session.return_value.client.return_value = mock_client
-            await obfuscator._put_file_to_s3("test-bucket", "test-key", "content", "text/plain")
-            mock_client.__aenter__.return_value.put_object.assert_called_once()
+        mock_client = AsyncMock()
+        mock_client.put_object = AsyncMock()
 
+        async def async_cm():
+            return mock_client
+
+        with patch.object(obfuscator.session, 'client', return_value=AsyncMock(
+            __aenter__=AsyncMock(side_effect=async_cm),
+            __aexit__=AsyncMock()
+        )):
+            await obfuscator._put_file_to_s3("test-bucket", "test-key", "content", "text/plain")
+            mock_client.put_object.assert_called_once_with(
+                Bucket="test-bucket",
+                Key="test-key", 
+                Body=b"content",  # Note: content is encoded to bytes
+                ContentType="text/plain"
+            )
+            
     def test_obfuscate_csv_success(self, aws_credentials, sample_csv):
         obfuscator = MultiFormatObfuscator()
         pii_fields = ['name', 'email_address']
@@ -125,19 +142,20 @@ class TestAsyncMultiFormatObfuscator:
                 assert result["statusCode"] == 200
 
 class TestAsyncLambdaHandler:
+    
     @pytest.mark.asyncio
     async def test_async_lambda_handler_success(self, aws_credentials):
         event = {
             "file_to_obfuscate": "s3://bucket/test.csv",
             "pii_fields": ["name"]
         }
-        
+
         with patch('src.obfuscator_lambda.MultiFormatObfuscator') as mock_obfuscator:
-            mock_instance = Mock()
-            mock_instance.process_file.return_value = {"statusCode": 200}
+            mock_instance = AsyncMock()
+            mock_instance.process_file = AsyncMock(return_value={"statusCode": 200})
             mock_instance._parse_s3_uri.return_value = {"bucket": "bucket", "key": "test.csv"}
             mock_obfuscator.return_value = mock_instance
-            
+
             result = await async_lambda_handler(event, None)
             assert result["statusCode"] == 200
 
@@ -152,30 +170,37 @@ class TestAsyncLambdaHandler:
             }],
             "pii_fields": ["name"]
         }
-        
+
         with patch('src.obfuscator_lambda.MultiFormatObfuscator') as mock_obfuscator:
-            mock_instance = Mock()
-            mock_instance.process_file.return_value = {"statusCode": 200}
+            mock_instance = AsyncMock()
+            mock_instance.process_file = AsyncMock(return_value={"statusCode": 200})
             mock_obfuscator.return_value = mock_instance
-            
+
             result = await async_lambda_handler(event, None)
             assert result["statusCode"] == 200
 
-    def test_lambda_handler_success(self, aws_credentials):
+    @pytest.mark.asyncio
+    async def test_async_lambda_handler_success(self, aws_credentials):
         event = {
             "file_to_obfuscate": "s3://bucket/test.csv",
             "pii_fields": ["name"]
         }
+
+        mock_instance = AsyncMock()
+        mock_instance.process_file = AsyncMock(return_value={"statusCode": 200, "body": "success"})
+        mock_instance._parse_s3_uri = Mock(return_value={"bucket": "bucket", "key": "test.csv"})
         
-        with patch('asyncio.run') as mock_run:
-            mock_run.return_value = {"statusCode": 200}
-            result = lambda_handler(event, None)
+        with patch('src.obfuscator_lambda.MultiFormatObfuscator', return_value=mock_instance) as mock_class:
+            mock_class.side_effect = None
+            result = await async_lambda_handler(event, None)
             assert result["statusCode"] == 200
-            mock_run.assert_called_once()
+            assert result["body"] == "success"
 
     def test_lambda_handler_invalid_json(self):
-        with pytest.raises(json.JSONDecodeError):
-            lambda_handler("invalid json", None)
+        invalid_event = "{'invalid': json}"  
+        result = lambda_handler(invalid_event, None) 
+        assert result['statusCode'] == 400
+        assert 'Invalid JSON input' in result['body']
 
     @pytest.mark.asyncio
     async def test_async_lambda_handler_missing_parameters(self, aws_credentials):

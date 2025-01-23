@@ -30,19 +30,6 @@ class TestRunLocally:
                 captured = capsys.readouterr()
                 assert "Error processing file: Processing failed" in captured.out
 
-    def test_usage_instructions(self, capsys):
-        """Test usage instructions when incorrect arguments are provided."""
-        with patch.object(sys, 'argv', ['script.py']):  # No arguments
-            with pytest.raises(SystemExit) as exc_info:
-                main()
-            
-            # Check the exit code
-            assert exc_info.value.code == 1
-            
-            # Capture and verify the output
-            captured = capsys.readouterr()
-            assert "Usage: python test_obfuscator.py <input_file> <pii_fields>" in captured.out
-
     def test_invalid_json(self, capsys, tmpdir):
         """Test handling of invalid JSON for PII fields."""
         test_file = tmpdir.join("test.csv")

@@ -45,8 +45,8 @@ make install
 3. Run Quality Checks:
 
 ```bash
-make lint
-make security-checks
+make quality-checks
+
 ```
 
 4. Run Tests:
@@ -207,7 +207,7 @@ make clean install
 2. Run tests and security checks:
 
 ```bash
-make test security-checks
+make quality-checks
 ```
 
 3. Create Lambda package and layers:
@@ -242,4 +242,5 @@ make clean-all
 ## Points to note that due to time constraints more features will be added
 
 1. I would like to add the functionality that the lambda will run automatically whenever a file is added to S3
-1. I would like to add the functionality that an email is sent to confirm that this process has occurrded.
+2. I would like to add the functionality that an email is sent to confirm that this process has occurrded.
+3. I would like to increase the coverage of the obfuscator_lambda.py

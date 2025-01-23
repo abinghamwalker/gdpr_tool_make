@@ -49,7 +49,7 @@ install:
 	@echo "Setting up virtual environment and installing dependencies..."
 	@$(PYTHON) -m venv $(VENV)
 	@$(VENV_BIN)/pip install --upgrade pip
-	@$(VENV_BIN)/pip install -r $(LAMBDA_DIR)/lambda_requirements.txt
+	@$(VENV_BIN)/pip install -r requirements.txt
 	@if [ "$(ENVIRONMENT)" = "dev" ]; then \
 		$(VENV_BIN)/pip install pytest pytest-cov black flake8 isort bandit safety mypy pylint pre-commit || echo "Optional dev dependencies installation completed with warnings"; \
 	fi
