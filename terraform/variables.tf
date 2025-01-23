@@ -9,6 +9,11 @@ variable "lambda_bucket" {
   type        = string
 }
 
+variable "state_bucket" {
+  description = "S3 bucket for storing terraform state"
+  type        = string
+}
+
 variable "aws_region" {
   description = "AWS region"
   type        = string
@@ -18,5 +23,5 @@ variable "aws_region" {
 variable "pii_fields" {
   description = "List of PII fields to obfuscate"
   type        = list(string)
-  default     = ["email", "phone", "ssn"]
+  default     = ["name", "email"]
 }

@@ -1,6 +1,6 @@
 # GDPR Obfuscator Project
 
-The GDPR Obfuscator Project is a tool designed to help Northcoders comply with GDPR requirements by anonymizing personally identifiable information (PII) in data stored in AWS S3. It supports CSV, JSON, and Parquet file formats and can be integrated into AWS Lambda for automated processing. The tool replaces sensitive data fields with obfuscated values, ensuring compliance with GDPR regulations.
+The GDPR Obfuscator Project is a tool designed to help Northcoders comply with GDPR requirements by anonymizing personally identifiable information (PII) in data stored in AWS S3. It supports CSV, JSON, and Parquet file formats and can be integrated into AWS Lambda for automated processing. The tool replaces sensitive data fields with obfuscated values, ensuring compliance with GDPR regulations and replaces the sensitive information in place. This tool can be run locally or uploaded to an AWS system where it will monitor an S3 bucket and automatically update this information using an AWS lambda service.
 
 ## Features
 
@@ -59,7 +59,7 @@ make test
 
 ### Running Locally
 
-You can run the GDPR Obfuscator locally using the `run_locally.py` script. This script takes two arguments:
+You can run the GDPR Obfuscator locally using the `run_locally.py` helper script. This script takes two arguments:
 
 1. The path to the input file
 2. A JSON array of fields to obfuscate

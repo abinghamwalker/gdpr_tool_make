@@ -10,7 +10,7 @@ resource "random_id" "bucket_suffix" {
 # Terraform backend configuration
 terraform {
   backend "s3" {
-    bucket = "gdpr-tool-state-bucket"
+    bucket = "var.state_bucket"
     key    = "terraform.tfstate"
     region = "eu-west-2"
   }
