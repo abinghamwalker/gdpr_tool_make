@@ -111,7 +111,7 @@ package:
 	cp -r ../obfuscator.py . && \
 	cp -r ../obfuscator_lambda.py . && \
 	cp -r ../__init__.py . && \
-	$(VENV_BIN)/pip install propcache -t . && \
+	$(VENV_BIN)/pip install propcache typing_extensions -t . && \
 	zip -r ../lambda_package.zip ./* && \
 	cd .. && \
 	rm -rf tmp_package

@@ -190,7 +190,7 @@ To do this in a command line configured with your AWS credentials
 
 ```bash
 
-aws s3api create-bucket --bucket nameforstatebucket --region eu-west-2
+aws s3api create-bucket --bucket gdpr-state-bucket --region eu-west-2 --create-bucket-configuration LocationConstraint=eu-west-2
 
 ```
 
@@ -216,14 +216,22 @@ make quality-checks
 make package create-layers
 ```
 
-4. Plan and apply Terraform
+4. Start up Terraform
+
+This step only needs to be carried out the first time you run the infrastructure.
 
 ```bash
-plan-and-apply
+make init
 ```
 
-4. Test the Lambda Function using the following JSON input:
-   You will have to put a csv into the data bucket created
+5. Plan and apply Terraform
+
+```bash
+make plan-and-apply
+```
+
+6. Test the Lambda Function using the following JSON input:
+   You will have to put a csv,json or parquet into the data bucket created
 
 ```json
 {
@@ -232,7 +240,9 @@ plan-and-apply
 }
 ```
 
-4. To remove all elementss from AWS once deployed
+7. To remove all elementss from AWS once deployed
+
+You have to empty all of the S3 buckets apart from the state bucket.
 
 ```bash
 make clean-all
