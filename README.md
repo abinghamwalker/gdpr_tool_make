@@ -180,89 +180,66 @@ Error processing file: <error details>
 
 ## AWS Lambda Integration
 
-The GDPR Obfuscator can be deployed as an AWS Lambda function:
+The GDPR Obfuscator can be deployed as an AWS Lambda function, in order to do this I have made another script obfuscator_lambda.py:
 
-1. Package the Lambda Function:
+The reason for this is that imports such as Pandas and Pyarrow are too large for the AWS Lambda layers so I re wrote the code.
+
+You will need a terraform state bucket for the automatic deployment below to work.
+
+To do this in a command line configured with your AWS credentials
 
 ```bash
-make package
+
+aws s3api create-bucket --bucket nameforstatebucket --region eu-west-2
+
 ```
 
-2. Upload the Package to S3:
+This will need to be added to the main.tf code on line 13.
+
+I have packaged the rest of the terraform commands into the Makefile
+
+1. Clean and install dependencies:
 
 ```bash
-make upload-lambda
+make clean install
 ```
 
-3. Deploy with Terraform:
+2. Run tests and security checks:
 
 ```bash
-make deploy
+make test security-checks
+```
+
+3. Create Lambda package and layers:
+
+```bash
+make package create-layers
+```
+
+4. Plan and apply Terraform
+
+```bash
+plan-and-apply
 ```
 
 4. Test the Lambda Function using the following JSON input:
+   You will have to put a csv into the data bucket created
 
 ```json
 {
   "file_to_obfuscate": "s3://your-bucket/file.csv",
-  "pii_fields": ["name", "email_address"]
+  "pii_fields": ["name"]
 }
 ```
 
-## Terraform Operations
-
-The project includes Terraform configurations for deploying AWS infrastructure:
-
-- Initialize Terraform: `make init`
-- Plan Terraform Changes: `make plan`
-- Apply Terraform Changes: `make deploy`
-- Destroy Infrastructure: `make destroy`
-
-## Makefile Commands
-
-The project includes a comprehensive Makefile that automates various tasks:
-
-- `make install`: Sets up the virtual environment and installs dependencies
-- `make clean`: Cleans up build artifacts, including the virtual environment
-- `make lint`: Runs code formatting and style checks
-- `make format`: Automatically formats code using black and isort
-- `make security-checks`: Runs security checks using bandit and safety
-- `make test`: Runs unit tests with coverage reporting
-- `make package`: Creates a Lambda deployment package
-- `make upload-lambda`: Uploads the Lambda deployment package to S3
-- `make deploy`: Deploys infrastructure using Terraform
-- `make destroy`: Destroys the deployed infrastructure
-- `make validate`: Validates Terraform configuration files
-- `make format-terraform`: Formats Terraform files
-- `make integration-test`: Runs integration tests
-- `make complexity`: Runs code complexity analysis
-- `make check-env`: Verifies AWS credentials
-- `make help`: Displays a help message with available targets
-
-## Testing
-
-After you have run `make install`:
-
-### Unit Tests
-
-Run unit tests with coverage:
+4. To remove all elementss from AWS once deployed
 
 ```bash
-make test
+make clean-all
+
 ```
 
-### Integration Tests
+## Points to note that due to time constraints more features will be added
 
-Run integration tests:
-
-```bash
-make integration-test
-```
-
-### Security Checks
-
-Run security checks to ensure code safety:
-
-```bash
-make security-checks
-```
+1. I would like to add the functionality that the lambda will run automatically whenever a file is added to S3
+1. I would like to add the functionality that an email is sent to confirm that this process has occurrded.

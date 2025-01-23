@@ -10,7 +10,10 @@ terraform/.terraform/
 .terraform*
 *.zip
 .coverage
-
-
+gdpr_tool_make/src/tmp_package/
+lambda_layer/
+.DS_Store
+=0.19.2
+=11.3.0
 
 

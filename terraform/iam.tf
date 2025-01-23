@@ -45,6 +45,15 @@ resource "aws_iam_role_policy" "lambda_policy" {
           "logs:PutLogEvents"
         ]
         Resource = "arn:aws:logs:*:*:*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "lambda:GetLayerVersion"
+        ]
+        Resource = [
+          "arn:aws:lambda:eu-west-2:770693421928:layer:Klayers-p312-polars:13"  # Allow access to the prebuilt Polars layer
+        ]
       }
     ]
   })

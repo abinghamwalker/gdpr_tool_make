@@ -193,7 +193,6 @@ class MultiFormatObfuscator:
             else:
                 raise ValueError(f"Unsupported file format: {file_format}")
 
-            # Overwrite the file in S3
             self._put_file_to_s3(bucket, key, output_content, content_type)
 
             return {
@@ -313,20 +312,20 @@ class MultiFormatObfuscator:
             return {"statusCode": 500, "body": json.dumps({"error": str(er_info)})}
 
 
-def lambda_handler(event: Dict[str, Any], context: Any) -> Dict:
-    """ """
-    try:
-        if isinstance(event, str):
-            event = json.loads(event)
+# def lambda_handler(event: Dict[str, Any], context: Any) -> Dict:
+#     """ """
+#     try:
+#         if isinstance(event, str):
+#             event = json.loads(event)
 
-        obfuscator = MultiFormatObfuscator()
-        result = obfuscator.process_request(event)
-        return result
+#         obfuscator = MultiFormatObfuscator()
+#         result = obfuscator.process_request(event)
+#         return result
 
-    except json.JSONDecodeError as er_info:
-        logger.error(f"Error parsing JSON input: {str(er_info)}")
-        return {"statusCode": 400, "body": json.dumps({"error": "Invalid input"})}
+#     except json.JSONDecodeError as er_info:
+#         logger.error(f"Error parsing JSON input: {str(er_info)}")
+#         return {"statusCode": 400, "body": json.dumps({"error": "Invalid input"})}
 
-    except Exception as er_info:
-        logger.error(f"Unexpected error: {str(er_info)}")
-        return {"statusCode": 500, "body": json.dumps({"error": str(er_info)})}
+#     except Exception as er_info:
+#         logger.error(f"Unexpected error: {str(er_info)}")
+#         return {"statusCode": 500, "body": json.dumps({"error": str(er_info)})}

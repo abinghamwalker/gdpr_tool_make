@@ -2,7 +2,7 @@ import json
 import os
 import sys
 
-from obfuscator import MultiFormatObfuscator
+from src.obfuscator import MultiFormatObfuscator
 
 
 def main():
